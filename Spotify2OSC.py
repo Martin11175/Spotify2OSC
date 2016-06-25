@@ -24,19 +24,18 @@ auth = ""
 # Loop 5ever
 while True:
     # Applescript to retrieve current playing track ID from Spotify
-    #scpt = '''
-    #    tell application "Spotify"
-    #        set currentTrackID to id of current track as string
-    #        return currentTrackID
-    #    end tell'''
-    #args = []
+    scpt = '''
+        tell application "Spotify"
+            set currentTrackID to id of current track as string
+            return currentTrackID
+        end tell'''
+    args = []
 
     # Run Applescript and process output
-    #p = Popen(['osascript', '-'] + args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    #stdout, stderr = p.communicate(scpt)
-    #track_id = stdout.decode()
-    #track_id = track_id[14:]
-    track_id = "2fmIPKZ6dpko0N4MQuzH4N"
+    p = Popen(['osascript', '-'] + args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate(scpt)
+    track_id = stdout.decode()
+    track_id = track_id[14:]
 
     # Request bpm information from Spotify Web API
     hdr = {"Authorization": "Bearer " + auth}
