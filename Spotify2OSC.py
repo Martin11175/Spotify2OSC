@@ -2,11 +2,10 @@
 import argparse
 import time
 import requests
-import string
+import applescript
 from requests.auth import HTTPBasicAuth
 from pythonosc import osc_message_builder
 from pythonosc import udp_client
-from subprocess import Popen, PIPE
 
 # Endpoint specification
 parser = argparse.ArgumentParser()
@@ -20,34 +19,43 @@ CLIENT_KEY = 'df92dda22b4c4645af2991175a6ad62a'
 endpoint = udp_client.UDPClient(args.ip, args.port)
 login_hdr = HTTPBasicAuth(CLIENT_ID, CLIENT_KEY)
 auth = ""
+hdr = {"Authorization": "Bearer " + auth}
 
 # Loop 5ever
 while True:
     # Applescript to retrieve current playing track ID from Spotify
-    scpt = '''
+    scpt = applescript.AppleScript('''
         tell application "Spotify"
             set currentTrackID to id of current track as string
             return currentTrackID
-        end tell'''
-    args = []
-
-    # Run Applescript and process output
-    p = Popen(['osascript', '-'] + args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = p.communicate(scpt)
-    track_id = stdout.decode()
+        end tell''')
+    track_id = scpt.run()
     track_id = track_id[14:]
+    track_id = track_id.rstrip()
+    print("Track ID: " + track_id)
 
     # Request bpm information from Spotify Web API
-    hdr = {"Authorization": "Bearer " + auth}
     response = requests.get("https://api.spotify.com/v1/audio-features/" + track_id, headers=hdr)
     if response.status_code != 200:
         # If token timed out, re-authorise
         auth_response = requests.post("https://accounts.spotify.com/api/token",
                                       auth=login_hdr,
                                       data={"grant_type": "client_credentials"})
+        if auth_response.status_code != 200:
+            print("AUTH ERROR: ", auth_response.status_code)
         auth = auth_response.json()["access_token"]
         hdr = {"Authorization": "Bearer " + auth}
+
+        # Try again
         response = requests.get("https://api.spotify.com/v1/audio-features/" + track_id, headers=hdr)
+        if response.status_code != 200:
+            print("REQUEST ERROR: ", response.status_code)
+            print('{}\n{}\n{}\n\n{}'.format(
+                '-----------START-----------',
+                response.request.method + ' ' + response.request.url,
+                '\n'.join('{}: {}'.format(k, v) for k, v in response.request.headers.items()),
+                response.request.body,
+            ))
 
     bpm = response.json()["tempo"]
     print(bpm)
